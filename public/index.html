@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Form Harness — Zero-Cost Conversational Form & AI Lead Scoring</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+  <header class="border-b border-slate-800 bg-slate-900/70 backdrop-blur sticky top-0 z-10">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="px-2.5 py-1 rounded-md bg-violet-600/20 border border-violet-500/40 text-violet-300 text-xs font-bold">FORM HARNESS</span>
+        <h1 class="text-lg font-bold">対話型フォーム ＆ AIリード即時スコアリング基盤</h1>
+      </div>
+      <div class="text-xs text-emerald-400 font-mono">Cloudflare Workers + D1 + MCP (¥0/mo)</div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <!-- Conversational Form Preview -->
+    <section class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+      <div class="text-xs text-violet-400 font-semibold uppercase tracking-wider mb-1">Interactive Conversational Form</div>
+      <h2 class="text-xl font-bold mb-4">60秒AIヒアリング＆即時査定</h2>
+      <form id="leadForm" class="space-y-4">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">1. 貴社名</label>
+          <input id="company_name" required value="株式会社ネクストクラウド" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">2. ご担当者名</label>
+            <input id="contact_name" required value="佐藤 健一" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">3. 法人メールアドレス</label>
+            <input id="email" type="email" required value="sato@nextcloud.co.jp" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">4. 月額予算感</label>
+            <select id="budget_range" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-xs">
+              <option value="100万円以上">100万円以上</option>
+              <option value="30万〜100万円">30万〜100万円</option>
+              <option value="10万〜30万円">10万〜30万円</option>
+              <option value="10万円未満">10万円未満</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">5. 導入時期</label>
+            <select id="timeline" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-xs">
+              <option value="今すぐ（1ヶ月以内）">今すぐ（1ヶ月以内）</option>
+              <option value="3ヶ月以内">3ヶ月以内</option>
+              <option value="情報収集中">情報収集中</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">6. チーム規模</label>
+            <select id="team_size" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-xs">
+              <option value="100名以上">100名以上</option>
+              <option value="30〜100名">30〜100名</option>
+              <option value="10〜30名">10〜30名</option>
+              <option value="1〜9名">1〜9名</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">7. 解決したい課題・ご相談内容</label>
+          <textarea id="use_case" rows="2" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm">既存のTypeformとHubSpotの月額費用が月8万円を超えており、AI自動振り分け付きの自社基盤へ移行したい。</textarea>
+        </div>
+        <button type="submit" class="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-2.5 rounded-lg text-sm transition">
+          フォーム送信 ➔ AIスコアリング＆Webhook自動振り分け
+        </button>
+      </form>
+    </section>
+
+    <!-- AI Lead Qualification Dashboard -->
+    <section class="lg:col-span-7 space-y-6">
+      <div class="grid grid-cols-4 gap-3" id="metricsCards"></div>
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <h3 class="text-base font-bold mb-3">AIスコアリング済みリード＆自動ルーティング一覧</h3>
+        <div id="leadsList" class="space-y-3 text-sm"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    async function loadDashboard() {
+      const res = await fetch('/api/dashboard');
+      const data = await res.json();
+      const m = data.metrics;
+      document.getElementById('metricsCards').innerHTML = `
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl"><div class="text-xs text-slate-400">総獲得リード</div><div class="text-2xl font-bold mt-1">${m.total_leads}件</div></div>
+        <div class="bg-slate-900 border border-rose-500/30 p-4 rounded-xl"><div class="text-xs text-rose-400">Tier A (即商談)</div><div class="text-2xl font-bold text-rose-300 mt-1">${m.tier_a_hot_leads}件</div></div>
+        <div class="bg-slate-900 border border-amber-500/30 p-4 rounded-xl"><div class="text-xs text-amber-400">平均AIスコア</div><div class="text-2xl font-bold text-amber-300 mt-1">${m.average_score}点</div></div>
+        <div class="bg-slate-900 border border-emerald-500/30 p-4 rounded-xl"><div class="text-xs text-emerald-400">削減SaaS固定費</div><div class="text-xl font-bold text-emerald-300 mt-1">¥${m.estimated_saas_saved_jpy.toLocaleString()}/月</div></div>
+      `;
+      document.getElementById('leadsList').innerHTML = data.leads.map(l => `
+        <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-bold">${l.company_name}（${l.contact_name} 様）</span>
+            <span class="px-2 py-0.5 rounded text-xs font-bold ${l.tier === 'A' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : l.tier === 'B' ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-300'}">Tier ${l.tier} / ${l.lead_score} pts</span>
+          </div>
+          <div class="text-xs text-slate-400 mb-2">${l.ai_summary}</div>
+          <div class="text-xs text-cyan-400 font-mono">${l.recommended_action}</div>
+        </div>
+      `).join('') || '<div class="text-slate-500 text-xs">まだリードがありません</div>';
+    }
+
+    document.getElementById('leadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await fetch('/api/forms/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_name: document.getElementById('company_name').value,
+          contact_name: document.getElementById('contact_name').value,
+          email: document.getElementById('email').value,
+          budget_range: document.getElementById('budget_range').value,
+          timeline: document.getElementById('timeline').value,
+          team_size: document.getElementById('team_size').value,
+          use_case: document.getElementById('use_case').value,
+        })
+      });
+      await loadDashboard();
+    });
+
+    loadDashboard();
+  </script>
+</body>
+</html>
